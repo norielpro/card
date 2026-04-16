@@ -722,6 +722,7 @@
       }
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="js/qrcode.min.js"></script>
 </head>
 <body>
@@ -796,6 +797,12 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
             </svg>
             Compartir HTML
+          </button>
+          <button class="btn btn-secondary" id="print-btn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            Imprimir
           </button>
         </div>
       </div>
@@ -1021,6 +1028,7 @@
       document.getElementById('show-qr-btn').addEventListener('click', showQR);
       document.getElementById('preview-html-btn').addEventListener('click', previewAsHTML);
       document.getElementById('share-html-btn').addEventListener('click', shareAsHTML);
+      document.getElementById('print-btn').addEventListener('click', printCard);
       document.getElementById('qr-close').addEventListener('click', () => {
         document.getElementById('qr-modal').classList.remove('active');
       });
@@ -1306,13 +1314,136 @@
       document.getElementById('qr-modal').classList.add('active');
     }
 
-    function shareAsHTML() {
+    function printCard() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'mm', format: [95, 150] });
+      const n = cardData.name || 'Contacto';
+      const hasDescription = cardData.description && cardData.description.trim().length > 0;
+      const pageWidth = 95;
+      const margin = 8;
+      let y = 10;
+
+      const bgColors = {
+        lunar: ['#0D1B2A', '#1B263B'], sunset: ['#2D1B2E', '#662D4B'],
+        forest: ['#1A2F1A', '#2D4A2D'], ocean: ['#0A192F', '#193853'],
+        rose: ['#2D2225', '#4A383D'], slate: ['#1E2D2F', '#3D5456'],
+        sand: ['#2D2720', '#4A4035'], white: ['#FAFAFA', '#FFFFFF'],
+        lavender: ['#E6E6FA', '#DDA0DD'], peach: ['#FFDAB9', '#FFCBA4'],
+        coral: ['#F88379', '#E97D6F'], blush: ['#FDE2E4', '#E8B4B8'],
+        mauve: ['#E0B0FF', '#A88FBF'], cream: ['#FFF8E7', '#F5E6C8']
+      };
+      const bg = bgColors[cardData.background] || bgColors.lunar;
+      const isLightBg = ['white', 'lavender', 'peach', 'coral', 'blush', 'mauve', 'cream'].includes(cardData.background);
+      const textColor = isLightBg ? '#1a1a1a' : '#ffffff';
+      const subTextColor = isLightBg ? '#666666' : '#AAAAAA';
+
+      doc.setFillColor(bg[0]);
+      doc.rect(0, 0, pageWidth, 50, 'F');
+      doc.setFillColor(bg[1]);
+      doc.rect(0, 25, pageWidth, 25, 'F');
+
+      if (cardData.photo && cardData.photo.startsWith('data:')) {
+        try {
+          doc.addImage(cardData.photo, 'JPEG', margin, 10, 20, 20);
+          doc.setDrawColor(255);
+          doc.setLineWidth(0.5);
+          doc.circle(margin + 10, 20, 10, 'S');
+        } catch (e) {
+          doc.setFillColor(200, 200, 200);
+          doc.circle(margin + 10, 20, 10, 'F');
+          doc.setTextColor('#666666');
+          doc.setFontSize(14);
+          doc.text(cardData.name ? cardData.name.charAt(0).toUpperCase() : '?', margin + 10, 23, { align: 'center' });
+        }
+      } else {
+        doc.setFillColor(200, 200, 200);
+        doc.circle(margin + 10, 20, 10, 'F');
+        doc.setTextColor('#666666');
+        doc.setFontSize(14);
+        doc.text(cardData.name ? cardData.name.charAt(0).toUpperCase() : '?', margin + 10, 23, { align: 'center' });
+      }
+
+      doc.setTextColor(textColor);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(n, margin + 28, 16);
+
+      doc.setTextColor(subTextColor);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      if (cardData.company) {
+        doc.text(cardData.company.toUpperCase(), margin + 28, 22);
+      }
+      if (cardData.title) {
+        doc.text(cardData.title, margin + 28, 27);
+      }
+      if (hasDescription) {
+        doc.setFontSize(7);
+        const desc = cardData.description.substring(0, 40);
+        doc.text(desc, margin + 28, 32);
+      }
+
+      y = 55;
+      doc.setFillColor(250, 250, 250);
+      doc.roundedRect(margin, y, pageWidth - margin * 2, 80, 3, 3, 'F');
+
+      doc.setTextColor('#333333');
+      doc.setFontSize(9);
+
+      const contactItems = [];
+      if (cardData.phone) contactItems.push(cardData.phone);
+      if (cardData.email) contactItems.push(cardData.email);
+      if (cardData.address) contactItems.push(cardData.address);
+      if (cardData.website) contactItems.push(cardData.website.replace(/^https?:\/\//, ''));
+
+      y += 5;
+      contactItems.forEach((text) => {
+        doc.setFontSize(8);
+        doc.text(text, margin + 5, y);
+        y += 6;
+      });
+
+      y += 5;
+      const socialLabels = {
+        whatsapp: 'WA', instagram: 'IG', linkedin: 'LI',
+        twitter: 'X', github: 'GH', telegram: 'TG'
+      };
+      const socials = ['whatsapp', 'instagram', 'linkedin', 'twitter', 'github', 'telegram'];
+      let socialX = margin + 5;
+      socials.forEach((s) => {
+        if (cardData[s]) {
+          doc.setFontSize(7);
+          doc.setTextColor('#1C4B5E');
+          doc.text(socialLabels[s], socialX, y + 2);
+          socialX += 12;
+        }
+      });
+
+      generateQRBase64(function(qrBase64) {
+        doc.setTextColor('#333333');
+        if (qrBase64) {
+          try {
+            doc.addImage(qrBase64, 'PNG', pageWidth / 2 - 15, y + 8, 30, 30);
+          } catch (e) {}
+        }
+        
+        doc.setFontSize(6);
+        doc.setTextColor('#999999');
+        doc.text('Tarjeta Digital', pageWidth / 2, 145, { align: 'center' });
+
+        doc.save(n.replace(/\s+/g, '_') + '_card.pdf');
+      });
+    }
+
+    async function shareAsHTML() {
       const n = cardData.name || 'Contacto';
       const grad = getBgGradient(cardData.background);
       const fileName = n.replace(/\s+/g, '_') + '_card.html';
       const vcardData = generateVCard();
+      const hasDescription = cardData.description && cardData.description.trim().length > 0;
+      const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
       
-      generateQRBase64(function(qrBase64) {
+      generateQRBase64(async function(qrBase64) {
         var html = [
           '<!DOCTYPE html>',
           '<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>' + n + '</title>',
@@ -1332,12 +1463,12 @@
           '.bg-rose{background:linear-gradient(150deg,#2D2225 0%,#4A383D 50%,#2D2225 100%)}.bg-rose::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 60% 30%,rgba(200,120,140,0.12) 0%,transparent 40%)}',
           '.bg-slate{background:linear-gradient(140deg,#1E2D2F 0%,#3D5456 50%,#1E2D2F 100%)}.bg-slate::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 40% 60%,rgba(150,180,180,0.08) 0%,transparent 40%)}',
           '.bg-sand{background:linear-gradient(135deg,#2D2720 0%,#4A4035 60%,#2D2720 100%)}.bg-sand::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 30% 80%,rgba(180,160,120,0.1) 0%,transparent 40%)}',
-          '.bg-lavender{background:linear-gradient(140deg,#2D2A3D 0%,#4A4563 50%,#2D2A3D 100%)}.bg-lavender::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 60%,rgba(180,160,220,0.1) 0%,transparent 40%)}',
-          '.bg-peach{background:linear-gradient(135deg,#2D2420 0%,#5A4538 50%,#2D2420 100%)}.bg-peach::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 30%,rgba(255,180,140,0.12) 0%,transparent 40%)}',
-          '.bg-coral{background:linear-gradient(135deg,#2D2025 0%,#5A3538 50%,#2D2025 100%)}.bg-coral::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 60% 20%,rgba(255,120,100,0.12) 0%,transparent 40%)}',
-          '.bg-blush{background:linear-gradient(140deg,#2D2228 0%,#4A383D 50%,#2D2228 100%)}.bg-blush::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(220,160,170,0.1) 0%,transparent 40%)}',
-          '.bg-mauve{background:linear-gradient(140deg,#2A2438 0%,#4A3856 50%,#2A2438 100%)}.bg-mauve::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 40% 50%,rgba(180,140,200,0.1) 0%,transparent 40%)}',
-          '.bg-cream{background:linear-gradient(180deg,#F5F0E8 0%,#FFF 50%,#F0EBE3 100%)}.bg-cream::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,rgba(200,180,160,0.1) 100%)}',
+          '.bg-lavender{background:linear-gradient(160deg,#E6E6FA 0%,#D8BFD8 50%,#DDA0DD 100%)}.bg-lavender::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 20%,rgba(200,150,200,0.2) 0%,transparent 50%)}',
+          '.bg-peach{background:linear-gradient(160deg,#FFDAB9 0%,#FFB6A1 50%,#FFCBA4 100%)}.bg-peach::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(255,200,150,0.25) 0%,transparent 50%)}',
+          '.bg-coral{background:linear-gradient(150deg,#F88379 0%,#F4A582 50%,#E97D6F 100%)}.bg-coral::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(255,180,150,0.25) 0%,transparent 50%)}',
+          '.bg-blush{background:linear-gradient(155deg,#FDE2E4 0%,#FAD0C4 50%,#E8B4B8 100%)}.bg-blush::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(255,200,200,0.2) 0%,transparent 50%)}',
+          '.bg-mauve{background:linear-gradient(150deg,#E0B0FF 0%,#BFA0D0 50%,#A88FBF 100%)}.bg-mauve::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 60% 30%,rgba(200,150,220,0.2) 0%,transparent 50%)}',
+          '.bg-cream{background:linear-gradient(180deg,#FFF8E7 0%,#FFF5DC 50%,#F5E6C8 100%)}.bg-cream::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,rgba(200,180,140,0.1) 100%)}',
           '.bg-white{background:linear-gradient(180deg,#FAFAFA 0%,#FFF 50%,#F5F5F5 100%)}',
           '.card.bg-img1{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.85)),url(img/1%20(1).jpg);background-size:cover;background-position:center}.card.bg-img1::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.15);pointer-events:none}.card.bg-img2{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.85)),url(img/1%20(2).jpg);background-size:cover;background-position:center}.card.bg-img2::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.15);pointer-events:none}.card.bg-img3{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.85)),url(img/1%20(3).jpg);background-size:cover;background-position:center}.card.bg-img3::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.15);pointer-events:none}',
           '.card.bg-img1 .contact-name,.card.bg-img2 .contact-name,.card.bg-img3 .contact-name{color:#1C4B5E;text-shadow:none}.card.bg-img1 .contact-company,.card.bg-img2 .contact-company,.card.bg-img3 .contact-company{color:#1C4B5E;opacity:0.7}.card.bg-img1 .contact-title,.card.bg-img2 .contact-title,.card.bg-img3 .contact-title{color:#1C4B5E;opacity:0.6}',
@@ -1431,12 +1562,24 @@
         html.push('</' + 'script></body></html>');
         
         var blob = new Blob([html.join('\n')], { type: 'text/html' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
+        
+        if (isNative) {
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(blob);
+          });
+          await window.Capacitor.Plugins.Share.share({
+            files: [{ filename: fileName, base64: base64, mimeType: 'text/html' }]
+          });
+        } else {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
       });
     }
 
@@ -1454,7 +1597,10 @@
         lunar: '#0D1B2A,#1B263B', sunset: '#2D1B2E,#662D4B',
         forest: '#1A2F1A,#2D4A2D', ocean: '#0A192F,#193853',
         rose: '#2D2225,#4A383D', slate: '#1E2D2F,#2F3D40',
-        sand: '#2D2720,#4A4035', white: '#FFFFFF,#FFFFFF'
+        sand: '#2D2720,#4A4035', white: '#FFFFFF,#FFFFFF',
+        lavender: '#E6E6FA,#DDA0DD', peach: '#FFDAB9,#FFCBA4',
+        coral: '#F88379,#E97D6F', blush: '#FDE2E4,#E8B4B8',
+        mauve: '#E0B0FF,#A88FBF', cream: '#FFF8E7,#F5E6C8'
       };
       return gradients[bg] || gradients.lunar;
     }
@@ -1496,12 +1642,12 @@
           '.bg-rose{background:linear-gradient(150deg,#2D2225 0%,#4A383D 50%,#2D2225 100%)}.bg-rose::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 60% 30%,rgba(200,120,140,0.12) 0%,transparent 40%)}',
           '.bg-slate{background:linear-gradient(140deg,#1E2D2F 0%,#3D5456 50%,#1E2D2F 100%)}.bg-slate::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 40% 60%,rgba(150,180,180,0.08) 0%,transparent 40%)}',
           '.bg-sand{background:linear-gradient(135deg,#2D2720 0%,#4A4035 60%,#2D2720 100%)}.bg-sand::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 30% 80%,rgba(180,160,120,0.1) 0%,transparent 40%)}',
-          '.bg-lavender{background:linear-gradient(140deg,#2D2A3D 0%,#4A4563 50%,#2D2A3D 100%)}.bg-lavender::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 60%,rgba(180,160,220,0.1) 0%,transparent 40%)}',
-          '.bg-peach{background:linear-gradient(135deg,#2D2420 0%,#5A4538 50%,#2D2420 100%)}.bg-peach::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 30%,rgba(255,180,140,0.12) 0%,transparent 40%)}',
-          '.bg-coral{background:linear-gradient(135deg,#2D2025 0%,#5A3538 50%,#2D2025 100%)}.bg-coral::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 60% 20%,rgba(255,120,100,0.12) 0%,transparent 40%)}',
-          '.bg-blush{background:linear-gradient(140deg,#2D2228 0%,#4A383D 50%,#2D2228 100%)}.bg-blush::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(220,160,170,0.1) 0%,transparent 40%)}',
-          '.bg-mauve{background:linear-gradient(140deg,#2A2438 0%,#4A3856 50%,#2A2438 100%)}.bg-mauve::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 40% 50%,rgba(180,140,200,0.1) 0%,transparent 40%)}',
-          '.bg-cream{background:linear-gradient(180deg,#F5F0E8 0%,#FFF 50%,#F0EBE3 100%)}.bg-cream::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,rgba(200,180,160,0.1) 100%)}',
+          '.bg-lavender{background:linear-gradient(160deg,#E6E6FA 0%,#D8BFD8 50%,#DDA0DD 100%)}.bg-lavender::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 20%,rgba(200,150,200,0.2) 0%,transparent 50%)}',
+          '.bg-peach{background:linear-gradient(160deg,#FFDAB9 0%,#FFB6A1 50%,#FFCBA4 100%)}.bg-peach::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(255,200,150,0.25) 0%,transparent 50%)}',
+          '.bg-coral{background:linear-gradient(150deg,#F88379 0%,#F4A582 50%,#E97D6F 100%)}.bg-coral::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(255,180,150,0.25) 0%,transparent 50%)}',
+          '.bg-blush{background:linear-gradient(155deg,#FDE2E4 0%,#FAD0C4 50%,#E8B4B8 100%)}.bg-blush::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(255,200,200,0.2) 0%,transparent 50%)}',
+          '.bg-mauve{background:linear-gradient(150deg,#E0B0FF 0%,#BFA0D0 50%,#A88FBF 100%)}.bg-mauve::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 60% 30%,rgba(200,150,220,0.2) 0%,transparent 50%)}',
+          '.bg-cream{background:linear-gradient(180deg,#FFF8E7 0%,#FFF5DC 50%,#F5E6C8 100%)}.bg-cream::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,rgba(200,180,140,0.1) 100%)}',
           '.bg-white{background:linear-gradient(180deg,#FAFAFA 0%,#FFF 50%,#F5F5F5 100%)}',
           '.card.bg-img1{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.85)),url(img/1%20(1).jpg);background-size:cover;background-position:center}.card.bg-img1::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.15);pointer-events:none}.card.bg-img2{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.85)),url(img/1%20(2).jpg);background-size:cover;background-position:center}.card.bg-img2::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.15);pointer-events:none}.card.bg-img3{background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.85)),url(img/1%20(3).jpg);background-size:cover;background-position:center}.card.bg-img3::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.15);pointer-events:none}',
           '.card.bg-img1 .contact-name,.card.bg-img2 .contact-name,.card.bg-img3 .contact-name{color:#1C4B5E;text-shadow:none}.card.bg-img1 .contact-company,.card.bg-img2 .contact-company,.card.bg-img3 .contact-company{color:#1C4B5E;opacity:0.7}.card.bg-img1 .contact-title,.card.bg-img2 .contact-title,.card.bg-img3 .contact-title{color:#1C4B5E;opacity:0.6}',
